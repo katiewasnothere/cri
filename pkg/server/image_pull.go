@@ -98,10 +98,14 @@ func (c *criService) PullImage(ctx context.Context, r *runtime.PullImageRequest)
 	// image has already been converted.
 	isSchema1 := desc.MediaType == containerdimages.MediaTypeDockerSchema1Manifest
 
+	defaultSnapshotterForSandbox := c.getDefaultSnapshotterForSandbox(r.GetSandboxConfig())
+	defaultSnapshotterPlatform := c.getDefaultSnapshotterPlatform(r.GetSandboxConfig())
+
 	image, err := c.client.Pull(ctx, ref,
 		containerd.WithSchema1Conversion,
 		containerd.WithResolver(resolver),
-		containerd.WithPullSnapshotter(c.getDefaultSnapshotterForSandbox(r.GetSandboxConfig())),
+		containerd.WithPlatform(defaultSnapshotterPlatform),
+		containerd.WithPullSnapshotter(defaultSnapshotterForSandbox),
 		containerd.WithPullUnpack,
 	)
 	if err != nil {
