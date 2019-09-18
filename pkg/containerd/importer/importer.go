@@ -32,6 +32,7 @@ import (
 	"github.com/containerd/containerd/images"
 	"github.com/containerd/containerd/leases"
 	"github.com/containerd/containerd/log"
+	"github.com/containerd/containerd/platforms"
 	"github.com/docker/distribution/reference"
 	"github.com/opencontainers/go-digest"
 	"github.com/opencontainers/image-spec/specs-go"
@@ -229,8 +230,13 @@ func Import(ctx context.Context, client *containerd.Client, reader io.Reader, op
 				Name:   ref,
 				Target: *desc,
 			}
+
+			platformMatcher := client.GetPlatform()
+			if desc.Platform != nil {
+				platformMatcher = platforms.Only(*desc.Platform)
+			}
 			if c.unpack {
-				img := containerd.NewImage(client, imgrec)
+				img := containerd.NewImageWithPlatform(client, imgrec, platformMatcher)
 				if err := img.Unpack(ctx, c.snapshotter); err != nil {
 					return refs, errors.Wrapf(err, "unpack image %q", ref)
 				}

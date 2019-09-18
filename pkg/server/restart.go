@@ -27,7 +27,6 @@ import (
 	"github.com/containerd/containerd/errdefs"
 	containerdimages "github.com/containerd/containerd/images"
 	"github.com/containerd/containerd/log"
-	"github.com/containerd/containerd/platforms"
 	"github.com/containerd/typeurl"
 	"github.com/docker/docker/pkg/system"
 	"github.com/pkg/errors"
@@ -423,7 +422,7 @@ func (c *criService) loadSandbox(ctx context.Context, cntr containerd.Container)
 func (c *criService) loadImages(ctx context.Context, cImages []containerd.Image) {
 	snapshotter := c.config.ContainerdConfig.Snapshotter
 	for _, i := range cImages {
-		ok, _, _, _, err := containerdimages.Check(ctx, i.ContentStore(), i.Target(), platforms.Default())
+		ok, _, _, _, err := containerdimages.Check(ctx, i.ContentStore(), i.Target(), c.client.GetPlatform())
 		if err != nil {
 			log.G(ctx).WithError(err).Errorf("Failed to check image content readiness for %q", i.Name())
 			continue
@@ -442,7 +441,7 @@ func (c *criService) loadImages(ctx context.Context, cImages []containerd.Image)
 			log.G(ctx).Warnf("The image %s is not unpacked.", i.Name())
 			// TODO(random-liu): Consider whether we should try unpack here.
 		}
-		if err := c.updateImage(ctx, i.Name()); err != nil {
+		if err := c.updateImage(ctx, i.Name(), c.client.GetPlatform()); err != nil {
 			log.G(ctx).WithError(err).Warnf("Failed to update reference for image %q", i.Name())
 			continue
 		}

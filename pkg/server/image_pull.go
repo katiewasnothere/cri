@@ -23,6 +23,8 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/containerd/containerd/platforms"
+
 	"github.com/containerd/containerd"
 	"github.com/containerd/containerd/errdefs"
 	containerdimages "github.com/containerd/containerd/images"
@@ -101,10 +103,17 @@ func (c *criService) PullImage(ctx context.Context, r *runtime.PullImageRequest)
 	defaultSnapshotterForSandbox := c.getDefaultSnapshotterForSandbox(r.GetSandboxConfig())
 	defaultSnapshotterPlatform := c.getDefaultSnapshotterPlatform(r.GetSandboxConfig())
 
+	p, err := platforms.Parse(defaultSnapshotterPlatform)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to parse image platform %v", defaultSnapshotterPlatform)
+	}
+
+	pullPlatform := platforms.Only(p)
+
 	image, err := c.client.Pull(ctx, ref,
 		containerd.WithSchema1Conversion,
 		containerd.WithResolver(resolver),
-		containerd.WithPlatform(defaultSnapshotterPlatform),
+		containerd.WithPlatformMatcher(pullPlatform),
 		containerd.WithPullSnapshotter(defaultSnapshotterForSandbox),
 		containerd.WithPullUnpack,
 	)
@@ -129,7 +138,7 @@ func (c *criService) PullImage(ctx context.Context, r *runtime.PullImageRequest)
 		// Update image store to reflect the newest state in containerd.
 		// No need to use `updateImage`, because the image reference must
 		// have been managed by the cri plugin.
-		if err := c.imageStore.Update(ctx, r); err != nil {
+		if err := c.imageStore.Update(ctx, r, pullPlatform); err != nil {
 			return nil, errors.Wrapf(err, "failed to update image store %q", r)
 		}
 	}
@@ -200,8 +209,8 @@ func (c *criService) createImageReference(ctx context.Context, name string, desc
 // updateImage updates image store to reflect the newest state of an image reference
 // in containerd. If the reference is not managed by the cri plugin, the function also
 // generates necessary metadata for the image and make it managed.
-func (c *criService) updateImage(ctx context.Context, r string) error {
-	img, err := c.client.GetImage(ctx, r)
+func (c *criService) updateImage(ctx context.Context, r string, platform platforms.MatchComparer) error {
+	img, err := c.client.GetImage(ctx, r, containerd.WithPlatformMatcher(platform))
 	if err != nil && !errdefs.IsNotFound(err) {
 		return errors.Wrap(err, "get image by reference")
 	}
@@ -216,7 +225,7 @@ func (c *criService) updateImage(ctx context.Context, r string) error {
 		if err := c.createImageReference(ctx, id, img.Target()); err != nil {
 			return errors.Wrapf(err, "create image id reference %q", id)
 		}
-		if err := c.imageStore.Update(ctx, id); err != nil {
+		if err := c.imageStore.Update(ctx, id, platform); err != nil {
 			return errors.Wrapf(err, "update image store for %q", id)
 		}
 		// The image id is ready, add the label to mark the image as managed.
@@ -226,7 +235,7 @@ func (c *criService) updateImage(ctx context.Context, r string) error {
 	}
 	// If the image is not found, we should continue updating the cache,
 	// so that the image can be removed from the cache.
-	if err := c.imageStore.Update(ctx, r); err != nil {
+	if err := c.imageStore.Update(ctx, r, platform); err != nil {
 		return errors.Wrapf(err, "update image store for %q", r)
 	}
 	return nil
