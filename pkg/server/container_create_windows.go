@@ -438,6 +438,7 @@ func (c *criService) generateContainerSpec(id string, sandboxID string, sandboxP
 			g.AddProcessAdditionalGid(uint32(group))
 		}
 		setOCINamespaces(&g, securityContext.GetNamespaceOptions(), sandboxPid)
+		g.SetProcessNoNewPrivileges(securityContext.GetNoNewPrivs())
 	}
 
 	return g.Config, nil
