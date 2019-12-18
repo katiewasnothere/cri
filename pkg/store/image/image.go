@@ -21,8 +21,6 @@ import (
 	"encoding/json"
 	"sync"
 
-	"github.com/containerd/containerd/platforms"
-
 	"github.com/containerd/containerd"
 	"github.com/containerd/containerd/content"
 	"github.com/containerd/containerd/errdefs"
@@ -77,10 +75,10 @@ func NewStore(client *containerd.Client) *Store {
 }
 
 // Update updates cache for a reference.
-func (s *Store) Update(ctx context.Context, ref string, platform platforms.MatchComparer) error {
+func (s *Store) Update(ctx context.Context, ref string) error {
 	s.lock.Lock()
 	defer s.lock.Unlock()
-	i, err := s.client.GetImage(ctx, ref, containerd.WithPlatformMatcher(platform))
+	i, err := s.client.GetImage(ctx, ref)
 	if err != nil && !errdefs.IsNotFound(err) {
 		return errors.Wrap(err, "get image from containerd")
 	}
