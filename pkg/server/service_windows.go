@@ -51,18 +51,13 @@ func doSelinux(enable bool) {
 }
 
 func (c *criService) getDefaultSnapshotterForSandbox(cfg *runtime.PodSandboxConfig) string {
-	platform := c.getDefaultSnapshotterPlatform(cfg)
-	return c.getDefaultSnapshotterForPlatform(platform)
-}
-
-func (c *criService) getDefaultSnapshotterPlatform(cfg *runtime.PodSandboxConfig) string {
 	var (
 		platform string
 	)
 	if cfg != nil {
 		platform = strings.Replace(cfg.Labels["sandbox-platform"], "-", "/", -1)
 	}
-	return platform
+	return c.getDefaultSnapshotterForPlatform(platform)
 }
 
 func (c *criService) getDefaultSnapshotterForPlatform(platform string) string {
