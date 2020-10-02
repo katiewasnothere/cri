@@ -23,6 +23,7 @@ import (
 	"github.com/containerd/containerd/log"
 	"golang.org/x/net/context"
 
+	"github.com/containerd/cri/pkg/api/criextension"
 	api "github.com/containerd/cri/pkg/api/v1"
 	ctrdutil "github.com/containerd/cri/pkg/containerd/util"
 	runtime "k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
@@ -502,5 +503,21 @@ func (in *instrumentedService) ReopenContainerLog(ctx context.Context, r *runtim
 		}
 	}()
 	res, err = in.c.ReopenContainerLog(ctrdutil.WithNamespace(ctx), r)
+	return res, errdefs.ToGRPC(err)
+}
+
+func (in *instrumentedService) UpdateContainerResourcesV2(ctx context.Context, r *criextension.UpdateContainerResourcesV2Request) (res *criextension.UpdateContainerResourcesV2Response, err error) {
+	if err := in.checkInitialized(); err != nil {
+		return nil, err
+	}
+	log.G(ctx).Infof("UpdateContainerResources for %q", r.GetContainerId())
+	defer func() {
+		if err != nil {
+			log.G(ctx).WithError(err).Errorf("UpdateContainerResources for %q failed", r.GetContainerId())
+		} else {
+			log.G(ctx).Infof("UpdateContainerResources for %q returns successfully", r.GetContainerId())
+		}
+	}()
+	res, err = in.c.UpdateContainerResourcesV2(ctrdutil.WithNamespace(ctx), r)
 	return res, errdefs.ToGRPC(err)
 }

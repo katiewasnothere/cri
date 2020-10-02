@@ -21,12 +21,14 @@ set -o pipefail
 
 ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"/..
 API_ROOT="${ROOT}/${API_PATH-"pkg/api/v1"}"
+CRIEXT_ROOT="${ROOT}/${CRIEXT_PATH-"pkg/api/criextension"}"
 
-go get k8s.io/code-generator/cmd/go-to-protobuf/protoc-gen-gogo
-if ! which protoc-gen-gogo >/dev/null; then
-  echo "GOPATH is not in PATH"
-  exit 1
-fi
+
+#go get k8s.io/code-generator/cmd/go-to-protobuf/protoc-gen-gogo
+#if ! which protoc-gen-gogo >/dev/null; then
+#  echo "GOPATH is not in PATH"
+#  exit 1
+#fi
 
 function cleanup {
   rm -f ${API_ROOT}/api.pb.go.bak
@@ -39,8 +41,11 @@ protoc \
   --proto_path="${ROOT}/vendor" \
   --gogo_out=plugins=grpc:${API_ROOT} ${API_ROOT}/api.proto
 
-# Update boilerplate for the generated file.
-echo "$(cat hack/boilerplate/boilerplate.go.txt ${API_ROOT}/api.pb.go)" > ${API_ROOT}/api.pb.go
-sed -i".bak" "s/Copyright AUTHORS/Copyright $(date '+%Y') The containerd Authors/g" ${API_ROOT}/api.pb.go
+
+protoc \
+  --proto_path="${CRIEXT_ROOT}" \
+  --proto_path="${ROOT}/vendor" \
+  --gogo_out=plugins=grpc:${CRIEXT_ROOT} ${CRIEXT_ROOT}/criextension.proto
 
 gofmt -l -s -w ${API_ROOT}/api.pb.go
+gofmt -l -s -w ${CRIEXT_ROOT}/criextension.pb.go
