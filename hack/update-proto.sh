@@ -21,7 +21,7 @@ set -o pipefail
 
 ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"/..
 API_ROOT="${ROOT}/${API_PATH-"pkg/api/v1"}"
-CRIEXT_ROOT="${ROOT}/${CRIEXT_PATH-"pkg/api/criextension"}"
+CRIEXT_ROOT="${ROOT}/${CRIEXT_PATH-"criextension"}"
 
 
 #go get k8s.io/code-generator/cmd/go-to-protobuf/protoc-gen-gogo

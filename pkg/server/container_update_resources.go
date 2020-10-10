@@ -253,22 +253,28 @@ func updateOCIWindowsResource(spec *runtimespec.Spec, new *runtime.WindowsContai
 	if err := util.DeepCopy(&cloned, spec); err != nil {
 		return nil, errors.Wrap(err, "failed to deep copy")
 	}
+	updateCPUResource := false
 	g := newSpecGenerator(&cloned)
 	cpuResources := runtimespec.WindowsCPUResources{}
 
 	if new.GetCpuShares() != 0 {
 		val := uint16(new.GetCpuShares())
 		cpuResources.Shares = &val
+		updateCPUResource = true
 	}
 	if new.GetCpuCount() != 0 {
 		val := uint64(new.GetCpuCount())
 		cpuResources.Count = &val
+		updateCPUResource = true
 	}
 	if new.GetCpuMaximum() != 0 {
 		val := uint16(new.GetCpuMaximum())
 		cpuResources.Maximum = &val
+		updateCPUResource = true
 	}
-	g.SetWindowsResourcesCPU(cpuResources)
+	if updateCPUResource {
+		g.SetWindowsResourcesCPU(cpuResources)
+	}
 	if new.GetMemoryLimitInBytes() != 0 {
 		g.SetWindowsResourcesMemoryLimit(uint64(new.GetMemoryLimitInBytes()))
 	}
