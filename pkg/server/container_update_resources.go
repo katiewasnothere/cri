@@ -24,18 +24,19 @@ import (
 	"github.com/containerd/containerd/errdefs"
 	"github.com/containerd/containerd/log"
 	"github.com/containerd/typeurl"
+	"github.com/opencontainers/runtime-spec/specs-go"
 	runtimespec "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/pkg/errors"
 	"golang.org/x/net/context"
 	runtime "k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
 
-	"github.com/containerd/cri/pkg/api/criextension"
 	ctrdutil "github.com/containerd/cri/pkg/containerd/util"
 	"github.com/containerd/cri/pkg/store"
 	containerstore "github.com/containerd/cri/pkg/store/container"
 	"github.com/containerd/cri/pkg/store/sandbox"
 	sandboxstore "github.com/containerd/cri/pkg/store/sandbox"
 	"github.com/containerd/cri/pkg/util"
+	"github.com/katiewasnothere/cri/criextension"
 )
 
 // UpdateContainerResources updates ContainerConfig of the container.
@@ -196,6 +197,7 @@ func createUpdatedSpec(cntr containerd.Container, oldSpec *runtimespec.Spec, gen
 		newResources = newSpec.Windows.Resources
 	}
 
+	// TODO katiewasnothere: add the cpugroups back here
 	return newSpec, newResources, nil
 }
 
@@ -299,4 +301,19 @@ func requestTaskUpdate(ctx context.Context, cntr containerd.Container, resources
 		return errors.Wrap(err, "failed to update resources")
 	}
 	return nil
+}
+
+func withUpdateResources(resources interface{}) containerd.UpdateTaskOpts {
+	return func(ctx context.Context, client *containerd.Client, r *containerd.UpdateTaskInfo) error {
+		switch resources.(type) {
+		case *specs.LinuxResources:
+		case *specs.WindowsResources:
+		case *criextension.COWContainerResourcesV2:
+		default:
+			return errors.New("WithResources requires a *specs.LinuxResources or *specs.WindowsResources or *criextension.COWContainerResourcesV2")
+		}
+
+		r.Resources = resources
+		return nil
+	}
 }

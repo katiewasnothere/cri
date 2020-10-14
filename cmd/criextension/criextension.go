@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/containerd/containerd/platforms"
-	"github.com/containerd/cri/pkg/api/criextension"
+	"github.com/containerd/cri/criextension"
 	"github.com/containerd/cri/pkg/client"
 	errorpkg "github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -70,7 +70,7 @@ func getRuntimeClientConnection() (*grpc.ClientConn, error) {
 	return conn, nil
 }
 
-func getRuntimeClient() (criextension.CRIExtensionRuntimeServiceClient, *grpc.ClientConn, error) {
+func getCriextensionRuntimeClient() (criextension.CRIExtensionRuntimeServiceClient, *grpc.ClientConn, error) {
 	conn, err := getRuntimeClientConnection()
 	if err != nil {
 		return nil, nil, errorpkg.Wrap(err, "failed to connect to runtime client")
@@ -82,7 +82,7 @@ func getRuntimeClient() (criextension.CRIExtensionRuntimeServiceClient, *grpc.Cl
 func main() {
 	app := cli.NewApp()
 	app.Name = "criextension"
-	app.Usage = "tool for running the criextension service"
+	app.Usage = "tool for running the criextension services, such as UpdateContainerResourcesV2"
 	app.Flags = []cli.Flag{
 		cli.StringFlag{
 			Name:  "config",
@@ -111,8 +111,8 @@ func main() {
 }
 
 var updateContainerCommand = cli.Command{
-	Name:      "updateContainer",
-	Usage:     "updates container",
+	Name:      "update",
+	Usage:     "updates container resources",
 	ArgsUsage: "CONTAINER-ID [flags...]",
 	Flags: []cli.Flag{
 		cli.Int64Flag{
@@ -156,7 +156,7 @@ var updateContainerCommand = cli.Command{
 		if globalConfig == nil {
 			return errors.New("criextension's config is not set")
 		}
-		client, conn, err := getRuntimeClient()
+		client, conn, err := getCriextensionRuntimeClient()
 		if err != nil {
 			return err
 		}
@@ -170,14 +170,7 @@ var updateContainerCommand = cli.Command{
 			platform = cli.String("platform")
 		}
 
-		/*cpuGroupResources := &criextension.CPUGroupResources{
-			Id:                cli.String("cpu-group-id"),
-			Cap:               cli.Int64("cpu-cap"),
-			SchedulerPriority: cli.Int64("scheduler-priority"),
-		}*/
-
 		parsedResources := &criextension.COWContainerResourcesV2{}
-
 		if platform == "windows" {
 			parsedResources.StdWindowsResources = &runtime.WindowsContainerResources{
 				CpuShares:          cli.Int64("cpu-share"),

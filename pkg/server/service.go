@@ -34,7 +34,6 @@ import (
 	runtime "k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
 	"k8s.io/kubernetes/pkg/kubelet/server/streaming"
 
-	"github.com/containerd/cri/pkg/api/criextension"
 	api "github.com/containerd/cri/pkg/api/v1"
 	"github.com/containerd/cri/pkg/atomic"
 	criconfig "github.com/containerd/cri/pkg/config"
@@ -45,6 +44,7 @@ import (
 	imagestore "github.com/containerd/cri/pkg/store/image"
 	sandboxstore "github.com/containerd/cri/pkg/store/sandbox"
 	snapshotstore "github.com/containerd/cri/pkg/store/snapshot"
+	"github.com/katiewasnothere/cri/criextension"
 )
 
 // grpcServices are all the grpc services provided by cri containerd.

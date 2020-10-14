@@ -10,7 +10,6 @@
 	It has these top-level messages:
 		UpdateContainerResourcesV2Request
 		UpdateContainerResourcesV2Response
-		COWContainerResourcesV2
 */
 package criextension
 
@@ -27,6 +26,7 @@ import (
 
 import strings "strings"
 import reflect "reflect"
+import github_com_gogo_protobuf_sortkeys "github.com/gogo/protobuf/sortkeys"
 
 import io "io"
 
@@ -42,8 +42,10 @@ var _ = math.Inf
 const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
 type UpdateContainerResourcesV2Request struct {
-	ContainerId string                   `protobuf:"bytes,1,opt,name=container_id,json=containerId,proto3" json:"container_id,omitempty"`
-	Resources   *COWContainerResourcesV2 `protobuf:"bytes,2,opt,name=resources" json:"resources,omitempty"`
+	ContainerId         string                                      `protobuf:"bytes,1,opt,name=container_id,json=containerId,proto3" json:"container_id,omitempty"`
+	StdWindowsResources *runtime_v1alpha2.WindowsContainerResources `protobuf:"bytes,2,opt,name=std_windows_resources,json=stdWindowsResources" json:"std_windows_resources,omitempty"`
+	StdLinuxResources   *runtime_v1alpha2.LinuxContainerResources   `protobuf:"bytes,3,opt,name=std_linux_resources,json=stdLinuxResources" json:"std_linux_resources,omitempty"`
+	Annotations         map[string]string                           `protobuf:"bytes,4,rep,name=annotations" json:"annotations,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 }
 
 func (m *UpdateContainerResourcesV2Request) Reset()      { *m = UpdateContainerResourcesV2Request{} }
@@ -59,9 +61,23 @@ func (m *UpdateContainerResourcesV2Request) GetContainerId() string {
 	return ""
 }
 
-func (m *UpdateContainerResourcesV2Request) GetResources() *COWContainerResourcesV2 {
+func (m *UpdateContainerResourcesV2Request) GetStdWindowsResources() *runtime_v1alpha2.WindowsContainerResources {
 	if m != nil {
-		return m.Resources
+		return m.StdWindowsResources
+	}
+	return nil
+}
+
+func (m *UpdateContainerResourcesV2Request) GetStdLinuxResources() *runtime_v1alpha2.LinuxContainerResources {
+	if m != nil {
+		return m.StdLinuxResources
+	}
+	return nil
+}
+
+func (m *UpdateContainerResourcesV2Request) GetAnnotations() map[string]string {
+	if m != nil {
+		return m.Annotations
 	}
 	return nil
 }
@@ -75,35 +91,9 @@ func (*UpdateContainerResourcesV2Response) Descriptor() ([]byte, []int) {
 	return fileDescriptorCriextension, []int{1}
 }
 
-type COWContainerResourcesV2 struct {
-	StdWindowsResources *runtime_v1alpha2.WindowsContainerResources `protobuf:"bytes,1,opt,name=std_windows_resources,json=stdWindowsResources" json:"std_windows_resources,omitempty"`
-	StdLinuxResources   *runtime_v1alpha2.LinuxContainerResources   `protobuf:"bytes,2,opt,name=std_linux_resources,json=stdLinuxResources" json:"std_linux_resources,omitempty"`
-}
-
-func (m *COWContainerResourcesV2) Reset()      { *m = COWContainerResourcesV2{} }
-func (*COWContainerResourcesV2) ProtoMessage() {}
-func (*COWContainerResourcesV2) Descriptor() ([]byte, []int) {
-	return fileDescriptorCriextension, []int{2}
-}
-
-func (m *COWContainerResourcesV2) GetStdWindowsResources() *runtime_v1alpha2.WindowsContainerResources {
-	if m != nil {
-		return m.StdWindowsResources
-	}
-	return nil
-}
-
-func (m *COWContainerResourcesV2) GetStdLinuxResources() *runtime_v1alpha2.LinuxContainerResources {
-	if m != nil {
-		return m.StdLinuxResources
-	}
-	return nil
-}
-
 func init() {
 	proto.RegisterType((*UpdateContainerResourcesV2Request)(nil), "criextension.api.UpdateContainerResourcesV2Request")
 	proto.RegisterType((*UpdateContainerResourcesV2Response)(nil), "criextension.api.UpdateContainerResourcesV2Response")
-	proto.RegisterType((*COWContainerResourcesV2)(nil), "criextension.api.COWContainerResourcesV2")
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -199,15 +189,42 @@ func (m *UpdateContainerResourcesV2Request) MarshalTo(dAtA []byte) (int, error) 
 		i = encodeVarintCriextension(dAtA, i, uint64(len(m.ContainerId)))
 		i += copy(dAtA[i:], m.ContainerId)
 	}
-	if m.Resources != nil {
+	if m.StdWindowsResources != nil {
 		dAtA[i] = 0x12
 		i++
-		i = encodeVarintCriextension(dAtA, i, uint64(m.Resources.Size()))
-		n1, err := m.Resources.MarshalTo(dAtA[i:])
+		i = encodeVarintCriextension(dAtA, i, uint64(m.StdWindowsResources.Size()))
+		n1, err := m.StdWindowsResources.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
 		i += n1
+	}
+	if m.StdLinuxResources != nil {
+		dAtA[i] = 0x1a
+		i++
+		i = encodeVarintCriextension(dAtA, i, uint64(m.StdLinuxResources.Size()))
+		n2, err := m.StdLinuxResources.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n2
+	}
+	if len(m.Annotations) > 0 {
+		for k := range m.Annotations {
+			dAtA[i] = 0x22
+			i++
+			v := m.Annotations[k]
+			mapSize := 1 + len(k) + sovCriextension(uint64(len(k))) + 1 + len(v) + sovCriextension(uint64(len(v)))
+			i = encodeVarintCriextension(dAtA, i, uint64(mapSize))
+			dAtA[i] = 0xa
+			i++
+			i = encodeVarintCriextension(dAtA, i, uint64(len(k)))
+			i += copy(dAtA[i:], k)
+			dAtA[i] = 0x12
+			i++
+			i = encodeVarintCriextension(dAtA, i, uint64(len(v)))
+			i += copy(dAtA[i:], v)
+		}
 	}
 	return i, nil
 }
@@ -230,44 +247,6 @@ func (m *UpdateContainerResourcesV2Response) MarshalTo(dAtA []byte) (int, error)
 	return i, nil
 }
 
-func (m *COWContainerResourcesV2) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *COWContainerResourcesV2) MarshalTo(dAtA []byte) (int, error) {
-	var i int
-	_ = i
-	var l int
-	_ = l
-	if m.StdWindowsResources != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintCriextension(dAtA, i, uint64(m.StdWindowsResources.Size()))
-		n2, err := m.StdWindowsResources.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n2
-	}
-	if m.StdLinuxResources != nil {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintCriextension(dAtA, i, uint64(m.StdLinuxResources.Size()))
-		n3, err := m.StdLinuxResources.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n3
-	}
-	return i, nil
-}
-
 func encodeVarintCriextension(dAtA []byte, offset int, v uint64) int {
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
@@ -284,22 +263,6 @@ func (m *UpdateContainerResourcesV2Request) Size() (n int) {
 	if l > 0 {
 		n += 1 + l + sovCriextension(uint64(l))
 	}
-	if m.Resources != nil {
-		l = m.Resources.Size()
-		n += 1 + l + sovCriextension(uint64(l))
-	}
-	return n
-}
-
-func (m *UpdateContainerResourcesV2Response) Size() (n int) {
-	var l int
-	_ = l
-	return n
-}
-
-func (m *COWContainerResourcesV2) Size() (n int) {
-	var l int
-	_ = l
 	if m.StdWindowsResources != nil {
 		l = m.StdWindowsResources.Size()
 		n += 1 + l + sovCriextension(uint64(l))
@@ -308,6 +271,20 @@ func (m *COWContainerResourcesV2) Size() (n int) {
 		l = m.StdLinuxResources.Size()
 		n += 1 + l + sovCriextension(uint64(l))
 	}
+	if len(m.Annotations) > 0 {
+		for k, v := range m.Annotations {
+			_ = k
+			_ = v
+			mapEntrySize := 1 + len(k) + sovCriextension(uint64(len(k))) + 1 + len(v) + sovCriextension(uint64(len(v)))
+			n += mapEntrySize + 1 + sovCriextension(uint64(mapEntrySize))
+		}
+	}
+	return n
+}
+
+func (m *UpdateContainerResourcesV2Response) Size() (n int) {
+	var l int
+	_ = l
 	return n
 }
 
@@ -328,9 +305,21 @@ func (this *UpdateContainerResourcesV2Request) String() string {
 	if this == nil {
 		return "nil"
 	}
+	keysForAnnotations := make([]string, 0, len(this.Annotations))
+	for k := range this.Annotations {
+		keysForAnnotations = append(keysForAnnotations, k)
+	}
+	github_com_gogo_protobuf_sortkeys.Strings(keysForAnnotations)
+	mapStringForAnnotations := "map[string]string{"
+	for _, k := range keysForAnnotations {
+		mapStringForAnnotations += fmt.Sprintf("%v: %v,", k, this.Annotations[k])
+	}
+	mapStringForAnnotations += "}"
 	s := strings.Join([]string{`&UpdateContainerResourcesV2Request{`,
 		`ContainerId:` + fmt.Sprintf("%v", this.ContainerId) + `,`,
-		`Resources:` + strings.Replace(fmt.Sprintf("%v", this.Resources), "COWContainerResourcesV2", "COWContainerResourcesV2", 1) + `,`,
+		`StdWindowsResources:` + strings.Replace(fmt.Sprintf("%v", this.StdWindowsResources), "WindowsContainerResources", "runtime_v1alpha2.WindowsContainerResources", 1) + `,`,
+		`StdLinuxResources:` + strings.Replace(fmt.Sprintf("%v", this.StdLinuxResources), "LinuxContainerResources", "runtime_v1alpha2.LinuxContainerResources", 1) + `,`,
+		`Annotations:` + mapStringForAnnotations + `,`,
 		`}`,
 	}, "")
 	return s
@@ -340,17 +329,6 @@ func (this *UpdateContainerResourcesV2Response) String() string {
 		return "nil"
 	}
 	s := strings.Join([]string{`&UpdateContainerResourcesV2Response{`,
-		`}`,
-	}, "")
-	return s
-}
-func (this *COWContainerResourcesV2) String() string {
-	if this == nil {
-		return "nil"
-	}
-	s := strings.Join([]string{`&COWContainerResourcesV2{`,
-		`StdWindowsResources:` + strings.Replace(fmt.Sprintf("%v", this.StdWindowsResources), "WindowsContainerResources", "runtime_v1alpha2.WindowsContainerResources", 1) + `,`,
-		`StdLinuxResources:` + strings.Replace(fmt.Sprintf("%v", this.StdLinuxResources), "LinuxContainerResources", "runtime_v1alpha2.LinuxContainerResources", 1) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -423,7 +401,7 @@ func (m *UpdateContainerResourcesV2Request) Unmarshal(dAtA []byte) error {
 			iNdEx = postIndex
 		case 2:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Resources", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field StdWindowsResources", wireType)
 			}
 			var msglen int
 			for shift := uint(0); ; shift += 7 {
@@ -447,12 +425,163 @@ func (m *UpdateContainerResourcesV2Request) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if m.Resources == nil {
-				m.Resources = &COWContainerResourcesV2{}
+			if m.StdWindowsResources == nil {
+				m.StdWindowsResources = &runtime_v1alpha2.WindowsContainerResources{}
 			}
-			if err := m.Resources.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+			if err := m.StdWindowsResources.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field StdLinuxResources", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCriextension
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthCriextension
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.StdLinuxResources == nil {
+				m.StdLinuxResources = &runtime_v1alpha2.LinuxContainerResources{}
+			}
+			if err := m.StdLinuxResources.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Annotations", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCriextension
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthCriextension
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Annotations == nil {
+				m.Annotations = make(map[string]string)
+			}
+			var mapkey string
+			var mapvalue string
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowCriextension
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					wire |= (uint64(b) & 0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					var stringLenmapkey uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowCriextension
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapkey |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					intStringLenmapkey := int(stringLenmapkey)
+					if intStringLenmapkey < 0 {
+						return ErrInvalidLengthCriextension
+					}
+					postStringIndexmapkey := iNdEx + intStringLenmapkey
+					if postStringIndexmapkey > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapkey = string(dAtA[iNdEx:postStringIndexmapkey])
+					iNdEx = postStringIndexmapkey
+				} else if fieldNum == 2 {
+					var stringLenmapvalue uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowCriextension
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapvalue |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					intStringLenmapvalue := int(stringLenmapvalue)
+					if intStringLenmapvalue < 0 {
+						return ErrInvalidLengthCriextension
+					}
+					postStringIndexmapvalue := iNdEx + intStringLenmapvalue
+					if postStringIndexmapvalue > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapvalue = string(dAtA[iNdEx:postStringIndexmapvalue])
+					iNdEx = postStringIndexmapvalue
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipCriextension(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthCriextension
+					}
+					if (iNdEx + skippy) > postIndex {
+						return io.ErrUnexpectedEOF
+					}
+					iNdEx += skippy
+				}
+			}
+			m.Annotations[mapkey] = mapvalue
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
@@ -504,122 +633,6 @@ func (m *UpdateContainerResourcesV2Response) Unmarshal(dAtA []byte) error {
 			return fmt.Errorf("proto: UpdateContainerResourcesV2Response: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
-		default:
-			iNdEx = preIndex
-			skippy, err := skipCriextension(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if skippy < 0 {
-				return ErrInvalidLengthCriextension
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
-func (m *COWContainerResourcesV2) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowCriextension
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: COWContainerResourcesV2: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: COWContainerResourcesV2: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field StdWindowsResources", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowCriextension
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthCriextension
-			}
-			postIndex := iNdEx + msglen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.StdWindowsResources == nil {
-				m.StdWindowsResources = &runtime_v1alpha2.WindowsContainerResources{}
-			}
-			if err := m.StdWindowsResources.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 2:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field StdLinuxResources", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowCriextension
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthCriextension
-			}
-			postIndex := iNdEx + msglen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.StdLinuxResources == nil {
-				m.StdLinuxResources = &runtime_v1alpha2.LinuxContainerResources{}
-			}
-			if err := m.StdLinuxResources.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipCriextension(dAtA[iNdEx:])
@@ -749,30 +762,32 @@ var (
 func init() { proto.RegisterFile("criextension.proto", fileDescriptorCriextension) }
 
 var fileDescriptorCriextension = []byte{
-	// 391 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x92, 0x41, 0x6f, 0xda, 0x30,
-	0x14, 0xc7, 0xf1, 0x0e, 0x93, 0x30, 0x1c, 0x36, 0x4f, 0xd3, 0x50, 0x0e, 0x11, 0x44, 0x3b, 0xb0,
-	0x4d, 0x38, 0x5a, 0xd8, 0x61, 0xe7, 0xa1, 0x69, 0x42, 0x9a, 0x54, 0x29, 0x55, 0x8b, 0xda, 0x4b,
-	0x14, 0x12, 0x37, 0x58, 0x80, 0xed, 0xda, 0x0e, 0x70, 0xec, 0xb5, 0xa7, 0xf6, 0x63, 0xf4, 0xa3,
-	0x70, 0xec, 0xa5, 0x52, 0x8f, 0x25, 0xfd, 0x22, 0x15, 0x09, 0x81, 0xb6, 0x81, 0x56, 0xbd, 0xc5,
-	0xff, 0xf7, 0xfe, 0xbf, 0x3c, 0xff, 0x9f, 0x21, 0x0a, 0x24, 0x25, 0x33, 0x4d, 0x98, 0xa2, 0x9c,
-	0x61, 0x21, 0xb9, 0xe6, 0xe8, 0xc3, 0x13, 0xcd, 0x17, 0xd4, 0x68, 0x45, 0x54, 0x0f, 0xe2, 0x3e,
-	0x0e, 0xf8, 0xd8, 0x8e, 0x78, 0xc4, 0xed, 0xb4, 0xb1, 0x1f, 0x9f, 0xa4, 0xa7, 0xf4, 0x90, 0x7e,
-	0x65, 0x00, 0xc3, 0x19, 0xfe, 0x56, 0x98, 0x72, 0x3b, 0x90, 0xb4, 0xe5, 0x0b, 0x6a, 0x8b, 0x61,
-	0x64, 0xfb, 0x82, 0x2a, 0x5b, 0xc6, 0x4c, 0xd3, 0x31, 0xb1, 0x27, 0x3f, 0xfd, 0x91, 0x18, 0xf8,
-	0xce, 0x52, 0xcd, 0x3c, 0xd6, 0x05, 0x80, 0x8d, 0x03, 0x11, 0xfa, 0x9a, 0x74, 0x38, 0xd3, 0x3e,
-	0x65, 0x44, 0xba, 0x44, 0xf1, 0x58, 0x06, 0x44, 0x1d, 0x3a, 0x2e, 0x39, 0x8d, 0x89, 0xd2, 0xa8,
-	0x01, 0xab, 0x41, 0x5e, 0xf6, 0x68, 0x58, 0x03, 0x75, 0xd0, 0x2c, 0xbb, 0x95, 0xb5, 0xd6, 0x0d,
-	0xd1, 0x3f, 0x58, 0x96, 0xb9, 0xb1, 0xf6, 0xae, 0x0e, 0x9a, 0x15, 0xe7, 0x1b, 0x7e, 0x7e, 0x23,
-	0xdc, 0xd9, 0xeb, 0x6d, 0xfd, 0xcf, 0xc6, 0x6b, 0x7d, 0x85, 0xd6, 0x4b, 0x03, 0x29, 0xc1, 0x99,
-	0x22, 0xd6, 0x0d, 0x80, 0x5f, 0x76, 0xc0, 0x90, 0x07, 0x3f, 0x2b, 0x1d, 0x7a, 0x53, 0xca, 0x42,
-	0x3e, 0x55, 0xde, 0x66, 0x2c, 0x90, 0x8e, 0xf5, 0x03, 0xaf, 0xf2, 0xc0, 0x79, 0x1e, 0xb8, 0x97,
-	0xb5, 0x16, 0x69, 0xee, 0x27, 0xa5, 0xc3, 0x55, 0x75, 0x2d, 0xa2, 0x23, 0xb8, 0x94, 0xbd, 0x11,
-	0x65, 0xf1, 0xcc, 0x2b, 0xde, 0xba, 0x80, 0xff, 0xbf, 0x6c, 0xdc, 0x02, 0xff, 0xa8, 0x74, 0x98,
-	0xd6, 0xd6, 0x92, 0x73, 0x05, 0xa0, 0xd1, 0x71, 0xbb, 0x7f, 0xf3, 0xd4, 0xdc, 0x8c, 0xb5, 0x4f,
-	0xe4, 0x84, 0x06, 0x04, 0x9d, 0x03, 0x68, 0xec, 0x4e, 0x07, 0xb5, 0x8b, 0x89, 0xbf, 0xba, 0x5c,
-	0xe3, 0xd7, 0xdb, 0x4c, 0xab, 0x05, 0x94, 0xfe, 0x7c, 0x9f, 0x2f, 0x4c, 0x70, 0xbb, 0x30, 0x4b,
-	0x67, 0x89, 0x09, 0xe6, 0x89, 0x09, 0xae, 0x13, 0x13, 0xdc, 0x25, 0x26, 0xb8, 0xbc, 0x37, 0x4b,
-	0xc7, 0xd5, 0xc7, 0xd0, 0xfe, 0xfb, 0xf4, 0xb5, 0xb5, 0x1f, 0x02, 0x00, 0x00, 0xff, 0xff, 0x3d,
-	0xe0, 0x0d, 0x37, 0xf8, 0x02, 0x00, 0x00,
+	// 431 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x9c, 0x92, 0x4f, 0x6f, 0xd3, 0x30,
+	0x18, 0xc6, 0xeb, 0x05, 0x90, 0xe6, 0xec, 0x50, 0x0c, 0x48, 0x55, 0x0e, 0x51, 0x17, 0x71, 0x28,
+	0xa0, 0x39, 0x22, 0xe3, 0x30, 0x71, 0x40, 0x82, 0xb1, 0xc3, 0x24, 0x4e, 0x46, 0x80, 0xe0, 0x12,
+	0xb9, 0x89, 0x97, 0x59, 0xed, 0x6c, 0x63, 0x3b, 0xdd, 0x76, 0xe3, 0xca, 0x8d, 0x8f, 0x81, 0xf8,
+	0x24, 0x3d, 0x72, 0xe4, 0x48, 0xc3, 0x17, 0x41, 0x71, 0x9a, 0xb6, 0xb4, 0xfc, 0x11, 0xbb, 0xf9,
+	0x7d, 0xde, 0xc7, 0xbf, 0x3c, 0x79, 0x12, 0x88, 0x32, 0xcd, 0xd9, 0x85, 0x65, 0xc2, 0x70, 0x29,
+	0xb0, 0xd2, 0xd2, 0x4a, 0xd4, 0xfd, 0x45, 0xa3, 0x8a, 0x07, 0x7b, 0x05, 0xb7, 0xa7, 0xe5, 0x10,
+	0x67, 0xf2, 0x2c, 0x2e, 0x64, 0x21, 0x63, 0x67, 0x1c, 0x96, 0x27, 0x6e, 0x72, 0x83, 0x3b, 0x35,
+	0x80, 0x20, 0x19, 0x1d, 0x18, 0xcc, 0x65, 0x9c, 0x69, 0xbe, 0x47, 0x15, 0x8f, 0xd5, 0xa8, 0x88,
+	0xa9, 0xe2, 0x26, 0xd6, 0xa5, 0xb0, 0xfc, 0x8c, 0xc5, 0x93, 0x87, 0x74, 0xac, 0x4e, 0x69, 0x52,
+	0xab, 0xcd, 0x9d, 0xe8, 0x8b, 0x07, 0x77, 0x5f, 0xa9, 0x9c, 0x5a, 0x76, 0x28, 0x85, 0xa5, 0x5c,
+	0x30, 0x4d, 0x98, 0x91, 0xa5, 0xce, 0x98, 0x79, 0x9d, 0x10, 0xf6, 0xbe, 0x64, 0xc6, 0xa2, 0x5d,
+	0xb8, 0x93, 0xb5, 0xeb, 0x94, 0xe7, 0x3d, 0xd0, 0x07, 0x83, 0x6d, 0xe2, 0x2f, 0xb4, 0xe3, 0x1c,
+	0xa5, 0xf0, 0x8e, 0xb1, 0x79, 0x7a, 0xce, 0x45, 0x2e, 0xcf, 0x4d, 0xaa, 0x5b, 0x48, 0x6f, 0xab,
+	0x0f, 0x06, 0x7e, 0xf2, 0x00, 0xcf, 0x43, 0xe0, 0x36, 0x04, 0x7e, 0xd3, 0x58, 0x37, 0x9f, 0x4b,
+	0x6e, 0x19, 0x9b, 0xcf, 0xb7, 0x0b, 0x11, 0xbd, 0x85, 0xb5, 0x9c, 0x8e, 0xb9, 0x28, 0x2f, 0x56,
+	0xf0, 0x9e, 0xc3, 0xdf, 0xdb, 0xc4, 0xbf, 0xa8, 0x8d, 0xbf, 0x81, 0xdf, 0x34, 0x36, 0x77, 0xbb,
+	0x25, 0xfa, 0x04, 0xfa, 0x54, 0x08, 0x69, 0xa9, 0xe5, 0x52, 0x98, 0xde, 0xb5, 0xbe, 0x37, 0xf0,
+	0x93, 0xe7, 0x78, 0xfd, 0x7b, 0xe0, 0x7f, 0x16, 0x85, 0x9f, 0x2e, 0x31, 0x47, 0xc2, 0xea, 0x4b,
+	0xb2, 0x0a, 0x0e, 0x9e, 0xc0, 0xee, 0xba, 0x01, 0x75, 0xa1, 0x37, 0x62, 0x97, 0xf3, 0x46, 0xeb,
+	0x23, 0xba, 0x0d, 0xaf, 0x4f, 0xe8, 0xb8, 0x64, 0xae, 0xb9, 0x6d, 0xd2, 0x0c, 0x8f, 0xb7, 0x0e,
+	0x40, 0x74, 0x17, 0x46, 0x7f, 0x8b, 0x60, 0x94, 0x14, 0x86, 0x25, 0x9f, 0x01, 0x0c, 0x0e, 0xc9,
+	0xf1, 0x51, 0x1b, 0x9d, 0x34, 0xcd, 0xbc, 0x64, 0x7a, 0xc2, 0x33, 0x86, 0x3e, 0x02, 0x18, 0xfc,
+	0x99, 0x82, 0xf6, 0xaf, 0xf0, 0xda, 0xc1, 0xa3, 0xff, 0xbb, 0xd4, 0x04, 0x8d, 0x3a, 0xcf, 0xee,
+	0x4f, 0x67, 0x21, 0xf8, 0x36, 0x0b, 0x3b, 0x1f, 0xaa, 0x10, 0x4c, 0xab, 0x10, 0x7c, 0xad, 0x42,
+	0xf0, 0xbd, 0x0a, 0xc1, 0xa7, 0x1f, 0x61, 0xe7, 0xdd, 0xce, 0x2a, 0x74, 0x78, 0xc3, 0xfd, 0xb0,
+	0xfb, 0x3f, 0x03, 0x00, 0x00, 0xff, 0xff, 0xf7, 0x2d, 0xc1, 0x55, 0x3b, 0x03, 0x00, 0x00,
 }

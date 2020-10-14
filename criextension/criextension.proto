@@ -21,12 +21,10 @@ service CRIExtensionRuntimeService {
 
 message UpdateContainerResourcesV2Request {
     string container_id = 1; 
-    COWContainerResourcesV2 resources = 2;
+    runtime.v1alpha2.WindowsContainerResources std_windows_resources = 2;
+	runtime.v1alpha2.LinuxContainerResources std_linux_resources = 3;
+    map<string, string> annotations = 4;
 }
 
 message UpdateContainerResourcesV2Response {}
 
-message COWContainerResourcesV2 {
-    runtime.v1alpha2.WindowsContainerResources std_windows_resources = 1;
-	runtime.v1alpha2.LinuxContainerResources std_linux_resources = 2;
-}

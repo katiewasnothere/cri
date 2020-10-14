@@ -23,9 +23,9 @@ import (
 	"github.com/containerd/containerd/log"
 	"golang.org/x/net/context"
 
-	"github.com/containerd/cri/pkg/api/criextension"
 	api "github.com/containerd/cri/pkg/api/v1"
 	ctrdutil "github.com/containerd/cri/pkg/containerd/util"
+	"github.com/katiewasnothere/cri/criextension"
 	runtime "k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
 )
 
