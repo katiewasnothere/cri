@@ -7,9 +7,9 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"runtime"
 	"time"
 
-	"github.com/containerd/containerd/platforms"
 	"github.com/containerd/cri/criextension"
 	"github.com/containerd/cri/pkg/client"
 	errorpkg "github.com/pkg/errors"
@@ -17,27 +17,36 @@ import (
 	"github.com/urfave/cli"
 	"google.golang.org/grpc"
 	"gopkg.in/yaml.v2"
-	runtime "k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
+	runtimeapi "k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
 )
 
 const defaultConfigName = "crictl.yaml"
 
-var globalConfig *Config
-
-type Config struct {
+type config struct {
 	RuntimeEndpoint string `yaml:"runtime-endpoint"`
 	Timeout         int    `yaml:"timeout"`
 	Debug           bool   `yaml:"debug"`
 }
 
+var globalConfig *config
+
+func getConfigInfo(configPath string) (*config, error) {
+	if _, err := os.Stat(configPath); err != nil {
+		return nil, errorpkg.Wrapf(err, "failed to load config file %s", configPath)
+	}
+
+	// read config information in file
+	return readConfig(configPath)
+}
+
 // readConfig reads from a file with the given name and returns a config or
 // an error if the file was unable to be parsed.
-func readConfig(filepath string) (*Config, error) {
+func readConfig(filepath string) (*config, error) {
 	data, err := ioutil.ReadFile(filepath)
 	if err != nil {
 		return nil, err
 	}
-	config := &Config{}
+	config := &config{}
 	err = yaml.Unmarshal(data, config)
 	if err != nil {
 		return nil, err
@@ -95,7 +104,7 @@ func main() {
 	}
 	app.Before = func(cli *cli.Context) (err error) {
 		// read from file, have default location
-		config, err := readConfig(cli.String("config"))
+		config, err := getConfigInfo(cli.String("config"))
 		if err != nil {
 			logrus.Fatal(err)
 			return err
@@ -165,21 +174,26 @@ var updateContainerCommand = cli.Command{
 				conn.Close()
 			}
 		}()
-		platform := platforms.DefaultSpec().OS
+		platform := runtime.GOOS
 		if cli.String("platform") != "" {
 			platform = cli.String("platform")
 		}
 
-		parsedResources := &criextension.COWContainerResourcesV2{}
+		cid := cli.Args().First()
+		req := &criextension.UpdateContainerResourcesV2Request{
+			ContainerId: cid,
+			Annotations: map[string]string{},
+		}
+
 		if platform == "windows" {
-			parsedResources.StdWindowsResources = &runtime.WindowsContainerResources{
+			req.StdWindowsResources = &runtimeapi.WindowsContainerResources{
 				CpuShares:          cli.Int64("cpu-share"),
 				CpuCount:           cli.Int64("cpu-count"),
 				CpuMaximum:         cli.Int64("cpu-max"),
 				MemoryLimitInBytes: cli.Int64("memory"),
 			}
-		} else if platform == "linux" {
-			parsedResources.StdLinuxResources = &runtime.LinuxContainerResources{
+		} else {
+			req.StdLinuxResources = &runtimeapi.LinuxContainerResources{
 				CpuPeriod:          cli.Int64("cpu-period"),
 				CpuQuota:           cli.Int64("cpu-quota"),
 				CpuShares:          cli.Int64("cpu-share"),
@@ -187,15 +201,8 @@ var updateContainerCommand = cli.Command{
 				CpusetMems:         cli.String("cpuset-mems"),
 				MemoryLimitInBytes: cli.Int64("memory"),
 			}
-		} else {
-			return fmt.Errorf("platform %s not supported for updating container resources", platform)
 		}
 
-		cid := cli.Args().First()
-		req := &criextension.UpdateContainerResourcesV2Request{
-			ContainerId: cid,
-			Resources:   parsedResources,
-		}
 		if _, err := client.UpdateContainerResourcesV2(context.Background(), req); err != nil {
 			return errorpkg.Wrapf(err, "updating container resources for %s", cid)
 		}

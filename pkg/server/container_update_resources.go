@@ -23,8 +23,8 @@ import (
 	"github.com/containerd/containerd/containers"
 	"github.com/containerd/containerd/errdefs"
 	"github.com/containerd/containerd/log"
+	"github.com/containerd/cri/criextension"
 	"github.com/containerd/typeurl"
-	"github.com/opencontainers/runtime-spec/specs-go"
 	runtimespec "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/pkg/errors"
 	"golang.org/x/net/context"
@@ -36,12 +36,15 @@ import (
 	"github.com/containerd/cri/pkg/store/sandbox"
 	sandboxstore "github.com/containerd/cri/pkg/store/sandbox"
 	"github.com/containerd/cri/pkg/util"
-	"github.com/katiewasnothere/cri/criextension"
 )
 
 // UpdateContainerResources updates ContainerConfig of the container.
 func (c *criService) UpdateContainerResources(ctx context.Context, r *runtime.UpdateContainerResourcesRequest) (retRes *runtime.UpdateContainerResourcesResponse, retErr error) {
-	if err := c.genericUpdateContainerResources(ctx, r.GetContainerId(), r.GetLinux()); err != nil {
+	v2Req := &criextension.UpdateContainerResourcesV2Request{
+		ContainerId:       r.ContainerId,
+		StdLinuxResources: r.GetLinux(),
+	}
+	if err := c.genericUpdateContainerResources(ctx, r.GetContainerId(), v2Req); err != nil {
 		return nil, err
 	}
 	return &runtime.UpdateContainerResourcesResponse{}, nil
@@ -51,24 +54,26 @@ func (c *criService) UpdateContainerResources(ctx context.Context, r *runtime.Up
 //
 // This is only needed since the CRI spec does not support windows resources updates.
 func (c *criService) UpdateContainerResourcesV2(ctx context.Context, r *criextension.UpdateContainerResourcesV2Request) (retRes *criextension.UpdateContainerResourcesV2Response, retErr error) {
-	var genericResources interface{} = r.GetResources().GetStdLinuxResources()
-	if genericResources.(*runtime.LinuxContainerResources) == nil {
-		genericResources = r.GetResources().GetStdWindowsResources()
+	var genericResources interface{} = r.GetStdLinuxResources()
+	if _, ok := genericResources.(*runtime.LinuxContainerResources); !ok {
+		genericResources = r.GetStdWindowsResources()
 	}
-	if err := c.genericUpdateContainerResources(ctx, r.GetContainerId(), genericResources); err != nil {
+	if err := c.genericUpdateContainerResources(ctx, r.GetContainerId(), r); err != nil {
 		return nil, err
 	}
 	return &criextension.UpdateContainerResourcesV2Response{}, nil
 }
 
-func (c *criService) genericUpdateContainerResources(ctx context.Context, id string, resources interface{}) (retErr error) {
+// genericUpdateContainerResources is a helper function that is capable of handling resources from UpdateContainerResources
+// and UpdateContainerResourcesV2
+func (c *criService) genericUpdateContainerResources(ctx context.Context, id string, request *criextension.UpdateContainerResourcesV2Request) (retErr error) {
 	// Update resources in status update transaction, so that:
 	// 1) There won't be race condition with container start.
 	// 2) There won't be concurrent resource update to the same container.
 	cntr, err := c.containerStore.Get(id)
 	if err == nil {
 		if err := cntr.Status.Update(func(status containerstore.Status) (containerstore.Status, error) {
-			return status, c.updateContainerResources(ctx, cntr.Container, resources, status)
+			return status, c.updateContainerResources(ctx, cntr.Container, request, status)
 		}); err != nil {
 			return errors.Wrap(err, "failed to update resources")
 		}
@@ -78,7 +83,7 @@ func (c *criService) genericUpdateContainerResources(ctx context.Context, id str
 			return errors.Wrap(err, "failed to find container or sandbox")
 		}
 		if err := sndbx.Status.Update(func(status sandboxstore.Status) (sandboxstore.Status, error) {
-			return status, c.updatePodContainerResources(ctx, sndbx.Container, resources, status)
+			return status, c.updatePodContainerResources(ctx, sndbx.Container, request, status)
 		}); err != nil {
 			return errors.Wrap(err, "failed to update resources")
 		}
@@ -91,7 +96,7 @@ func (c *criService) genericUpdateContainerResources(ctx context.Context, id str
 
 func (c *criService) updatePodContainerResources(ctx context.Context,
 	cntr containerd.Container,
-	genericResources interface{},
+	request *criextension.UpdateContainerResourcesV2Request,
 	status sandboxstore.Status) (retErr error) {
 
 	id := cntr.ID
@@ -101,10 +106,10 @@ func (c *criService) updatePodContainerResources(ctx context.Context,
 
 	oldSpec, err := cntr.Spec(ctx)
 	if err != nil {
-		return errors.Wrap(err, "failed to get container spec")
+		return errors.Wrap(err, "failed to get pod spec")
 	}
 
-	newSpec, newResources, err := createUpdatedSpec(cntr, oldSpec, genericResources)
+	newSpec, newResources, err := createUpdatedSpec(cntr, oldSpec, request)
 	if err != nil {
 		return err
 	}
@@ -118,23 +123,25 @@ func (c *criService) updatePodContainerResources(ctx context.Context,
 			defer deferCancel()
 			// Reset spec on error.
 			if err := updateContainerSpec(deferCtx, cntr, oldSpec); err != nil {
-				log.G(ctx).WithError(err).Errorf("Failed to update spec %+v for container %q", oldSpec, id)
+				log.G(ctx).WithError(err).Errorf("Failed to update spec %+v for pod %q", oldSpec, id)
 			}
 		}
 	}()
 
+	// TODO: katiewasnothere: is this true????
 	// If sandbox is not ready, only update spec is enough, new resource
 	// limit will be applied on pod start.
-	if status.State != sandbox.StateNotReady {
+	if status.State == sandbox.StateNotReady {
 		return nil
 	}
-	return requestTaskUpdate(ctx, cntr, newResources)
+	return requestTaskUpdate(ctx, cntr, newResources, request.Annotations)
 }
 
 func (c *criService) updateContainerResources(ctx context.Context,
 	cntr containerd.Container,
-	genericResources interface{},
+	request *criextension.UpdateContainerResourcesV2Request,
 	status containerstore.Status) (retErr error) {
+
 	id := cntr.ID
 	// Do not update the container when there is a removal in progress.
 	if status.Removing {
@@ -149,7 +156,7 @@ func (c *criService) updateContainerResources(ctx context.Context,
 	if err != nil {
 		return errors.Wrap(err, "failed to get container spec")
 	}
-	newSpec, newResources, err := createUpdatedSpec(cntr, oldSpec, genericResources)
+	newSpec, newResources, err := createUpdatedSpec(cntr, oldSpec, request)
 	if err != nil {
 		return err
 	}
@@ -173,35 +180,34 @@ func (c *criService) updateContainerResources(ctx context.Context,
 	if status.State() != runtime.ContainerState_CONTAINER_RUNNING {
 		return nil
 	}
-	return requestTaskUpdate(ctx, cntr, newResources)
+	return requestTaskUpdate(ctx, cntr, newResources, request.Annotations)
 }
 
-func createUpdatedSpec(cntr containerd.Container, oldSpec *runtimespec.Spec, genericResources interface{}) (*runtimespec.Spec, interface{}, error) {
+func createUpdatedSpec(cntr containerd.Container, oldSpec *runtimespec.Spec, request *criextension.UpdateContainerResourcesV2Request) (*runtimespec.Spec, interface{}, error) {
 	var err error
 	newSpec := (*runtimespec.Spec)(nil)
 	newResources := (interface{})(nil)
 
-	if resources, ok := (genericResources).(*runtime.LinuxContainerResources); ok {
-		log.G(context.Background()).WithField("Updating as a linux resource", resources).Info("createUpdatedSpec")
-		newSpec, err = updateOCILinuxResource(oldSpec, resources)
+	if request.GetStdLinuxResources() != nil {
+		log.G(context.Background()).WithField("Updating as a linux resource", request).Info("createUpdatedSpec")
+		newSpec, err = updateOCILinuxResource(oldSpec, request.GetStdLinuxResources())
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "failed to update resource in spec")
 		}
 		newResources = newSpec.Linux.Resources
-	} else if resources, ok := (genericResources).(*runtime.WindowsContainerResources); ok {
-		log.G(context.Background()).WithField("Updating as a windows resource", resources).Info("createUpdatedSpec")
-		newSpec, err = updateOCIWindowsResource(oldSpec, resources)
+	} else if request.GetStdWindowsResources() != nil {
+		log.G(context.Background()).WithField("Updating as a windows resource", request).Info("createUpdatedSpec")
+		newSpec, err = updateOCIWindowsResource(oldSpec, request.GetStdWindowsResources())
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "failed to update resource in spec")
 		}
 		newResources = newSpec.Windows.Resources
 	}
-
-	// TODO katiewasnothere: add the cpugroups back here
 	return newSpec, newResources, nil
 }
 
-// updateContainerSpec updates container spec on disk.
+// updateContainerSpec updates container spec on disk, this will be the container's source of truth for
+// resource information.
 func updateContainerSpec(ctx context.Context, cntr containerd.Container, spec *runtimespec.Spec) error {
 	any, err := typeurl.MarshalAny(spec)
 	if err != nil {
@@ -216,13 +222,14 @@ func updateContainerSpec(ctx context.Context, cntr containerd.Container, spec *r
 	return nil
 }
 
-// updateOCILinuxResource updates container resource limit.
+// updateOCILinuxResource updates container resource limits for linux containers
 func updateOCILinuxResource(spec *runtimespec.Spec, new *runtime.LinuxContainerResources) (*runtimespec.Spec, error) {
 	// Copy to make sure old spec is not changed.
 	var cloned runtimespec.Spec
 	if err := util.DeepCopy(&cloned, spec); err != nil {
 		return nil, errors.Wrap(err, "failed to deep copy")
 	}
+
 	g := newSpecGenerator(&cloned)
 
 	if new.GetCpuPeriod() != 0 {
@@ -255,26 +262,23 @@ func updateOCIWindowsResource(spec *runtimespec.Spec, new *runtime.WindowsContai
 	if err := util.DeepCopy(&cloned, spec); err != nil {
 		return nil, errors.Wrap(err, "failed to deep copy")
 	}
-	updateCPUResource := false
 	g := newSpecGenerator(&cloned)
 	cpuResources := runtimespec.WindowsCPUResources{}
 
 	if new.GetCpuShares() != 0 {
 		val := uint16(new.GetCpuShares())
 		cpuResources.Shares = &val
-		updateCPUResource = true
 	}
 	if new.GetCpuCount() != 0 {
 		val := uint64(new.GetCpuCount())
 		cpuResources.Count = &val
-		updateCPUResource = true
 	}
 	if new.GetCpuMaximum() != 0 {
 		val := uint16(new.GetCpuMaximum())
 		cpuResources.Maximum = &val
-		updateCPUResource = true
 	}
-	if updateCPUResource {
+
+	if cpuResources.Shares != nil || cpuResources.Count != nil || cpuResources.Maximum != nil {
 		g.SetWindowsResourcesCPU(cpuResources)
 	}
 	if new.GetMemoryLimitInBytes() != 0 {
@@ -284,7 +288,8 @@ func updateOCIWindowsResource(spec *runtimespec.Spec, new *runtime.WindowsContai
 	return g.Config, nil
 }
 
-func requestTaskUpdate(ctx context.Context, cntr containerd.Container, resources interface{}) error {
+// requestTaskUpdate sends the Update request to the task to handle
+func requestTaskUpdate(ctx context.Context, cntr containerd.Container, resources interface{}, annotations map[string]string) error {
 	task, err := cntr.Task(ctx, nil)
 	if err != nil {
 		if errdefs.IsNotFound(err) {
@@ -293,7 +298,7 @@ func requestTaskUpdate(ctx context.Context, cntr containerd.Container, resources
 		}
 		return errors.Wrap(err, "failed to get task")
 	}
-	if err := task.Update(ctx, containerd.WithResources(resources)); err != nil {
+	if err := task.Update(ctx, containerd.WithResources(resources), containerd.WithAnnotations(annotations)); err != nil {
 		if errdefs.IsNotFound(err) {
 			// Task exited already.
 			return nil
@@ -301,19 +306,4 @@ func requestTaskUpdate(ctx context.Context, cntr containerd.Container, resources
 		return errors.Wrap(err, "failed to update resources")
 	}
 	return nil
-}
-
-func withUpdateResources(resources interface{}) containerd.UpdateTaskOpts {
-	return func(ctx context.Context, client *containerd.Client, r *containerd.UpdateTaskInfo) error {
-		switch resources.(type) {
-		case *specs.LinuxResources:
-		case *specs.WindowsResources:
-		case *criextension.COWContainerResourcesV2:
-		default:
-			return errors.New("WithResources requires a *specs.LinuxResources or *specs.WindowsResources or *criextension.COWContainerResourcesV2")
-		}
-
-		r.Resources = resources
-		return nil
-	}
 }
