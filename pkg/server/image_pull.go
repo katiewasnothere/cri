@@ -103,6 +103,7 @@ func (c *criService) PullImage(ctx context.Context, r *runtime.PullImageRequest)
 		containerd.WithResolver(resolver),
 		containerd.WithPullSnapshotter(c.getDefaultSnapshotterForSandbox(r.GetSandboxConfig())),
 		containerd.WithPullUnpack,
+		containerd.WithUnpackOpts([]containerd.UnpackOpt{containerd.WithSnapshotterPlatformCheck()}),
 	)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to pull and unpack image %q", ref)
