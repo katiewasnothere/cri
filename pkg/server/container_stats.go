@@ -19,6 +19,7 @@ package server
 import (
 	v1 "github.com/containerd/cgroups/stats/v1"
 	tasks "github.com/containerd/containerd/api/services/tasks/v1"
+	"github.com/containerd/containerd/log"
 	"github.com/containerd/cri/pkg/store"
 	"github.com/containerd/cri/pkg/store/container"
 	"github.com/containerd/cri/pkg/store/sandbox"
@@ -50,8 +51,9 @@ func (c *criService) ContainerStats(ctx context.Context, in *runtime.ContainerSt
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to fetch metrics for task")
 	}
-	if len(resp.Metrics) != 1 {
-		return nil, errors.Errorf("unexpected metrics response: %+v", resp.Metrics)
+	if len(resp.Metrics) == 0 {
+		log.G(ctx).Warnf("found no metrics for %s", id)
+		return &runtime.ContainerStatsResponse{Stats: nil}, nil
 	}
 
 	var cs *runtime.ContainerStats
